@@ -1542,16 +1542,28 @@ func TestUnprotectWorkbook(t *testing.T) {
 
 	f = NewFile()
 	assert.NoError(t, f.ProtectWorkbook(&WorkbookProtectionOptions{Password: "password"}))
+	wb, err := f.workbookReader()
+	assert.NoError(t, err)
+	assert.NotNil(t, wb.WorkbookProtection)
 	assert.NoError(t, f.UnprotectWorkbook("wrongPassword"))
+	wb, err = f.workbookReader()
+	assert.NoError(t, err)
+	assert.NotNil(t, wb.WorkbookProtection, "protection should not be removed with wrong password")
 	assert.NoError(t, f.UnprotectWorkbook("password"))
+	wb, err = f.workbookReader()
+	assert.NoError(t, err)
+	assert.Nil(t, wb.WorkbookProtection, "protection should be removed with correct password")
 	assert.NoError(t, f.ProtectWorkbook(&WorkbookProtectionOptions{
 		AlgorithmName: "SHA-512",
 		Password:      "password",
 	}))
-	wb, err := f.workbookReader()
+	wb, err = f.workbookReader()
 	assert.NoError(t, err)
 	wb.WorkbookProtection.WorkbookSaltValue = "YWJjZA====="
 	assert.NoError(t, f.UnprotectWorkbook("wrongPassword"))
+	wb, err = f.workbookReader()
+	assert.NoError(t, err)
+	assert.NotNil(t, wb.WorkbookProtection, "protection should not be removed with invalid salt")
 	f.WorkBook = nil
 	f.Pkg.Store(defaultXMLPathWorkbook, MacintoshCyrillicCharset)
 	assert.EqualError(t, f.UnprotectWorkbook(), "XML syntax error on line 1: invalid UTF-8")

@@ -2950,6 +2950,9 @@ func (f *File) AddConditionalFormat(sheet, rangeRef string, opt *ConditionalForm
 	if opt == nil {
 		return ErrParameterRequired
 	}
+	if _, ok := validType[opt.Type]; !ok {
+		return fmt.Errorf("unsupported conditional format type: %s", opt.Type)
+	}
 	return f.SetConditionalFormat(sheet, rangeRef, []ConditionalFormatOptions{*opt})
 }
 

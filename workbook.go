@@ -166,12 +166,16 @@ func (f *File) UnprotectWorkbook(password ...string) error {
 		if wb.WorkbookProtection == nil {
 			return nil
 		}
-		if wb.WorkbookProtection.WorkbookAlgorithmName != "" {
-			hashValue, _, hashErr := genISOPasswdHash(password[0], wb.WorkbookProtection.WorkbookAlgorithmName, wb.WorkbookProtection.WorkbookSaltValue, wb.WorkbookProtection.WorkbookSpinCount)
-			if hashErr != nil {
-				return nil
-			}
-			if wb.WorkbookProtection.WorkbookHashValue != hashValue {
+		if wb.WorkbookProtection.WorkbookHashValue != "" {
+			if wb.WorkbookProtection.WorkbookAlgorithmName != "" {
+				hashValue, _, hashErr := genISOPasswdHash(password[0], wb.WorkbookProtection.WorkbookAlgorithmName, wb.WorkbookProtection.WorkbookSaltValue, wb.WorkbookProtection.WorkbookSpinCount)
+				if hashErr != nil {
+					return nil
+				}
+				if wb.WorkbookProtection.WorkbookHashValue != hashValue {
+					return nil
+				}
+			} else {
 				return nil
 			}
 		}

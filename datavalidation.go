@@ -608,7 +608,7 @@ func (f *File) AddValidation(sheet, cell string, rule *ValidationRule, errorStyl
 	dv.Sqref = cell
 	typeName, ok := dataValidationTypeMap[rule.Type]
 	if !ok {
-		return ErrParameterInvalid
+		return fmt.Errorf("unsupported data validation type: %d", rule.Type)
 	}
 	dv.Type = typeName
 	switch rule.Type {

@@ -946,5 +946,10 @@ func TestAddConditionalFormat(t *testing.T) {
 		BarColor: "#638EC6",
 	}))
 
+	assert.EqualError(t, f.AddConditionalFormat("Sheet1", "F1:F10", &ConditionalFormatOptions{
+		Type:     "invalid_type",
+		Criteria: "=",
+	}), "unsupported conditional format type: invalid_type")
+
 	assert.NoError(t, f.SaveAs(filepath.Join("test", "TestAddConditionalFormat.xlsx")))
 }
