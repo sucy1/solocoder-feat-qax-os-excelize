@@ -604,12 +604,16 @@ func (f *File) AddValidation(sheet, cell string, rule *ValidationRule, errorStyl
 	if rule == nil {
 		return ErrParameterRequired
 	}
-	dv := NewDataValidation(rule.AllowBlank)
-	dv.Sqref = cell
-	typeName, ok := dataValidationTypeMap[rule.Type]
-	if !ok {
+	switch rule.Type {
+	case DataValidationTypeWhole, DataValidationTypeDecimal, DataValidationTypeList,
+		DataValidationTypeDate, DataValidationTypeTime, DataValidationTypeTextLength,
+		DataValidationTypeCustom:
+	default:
 		return fmt.Errorf("unsupported data validation type: %d", rule.Type)
 	}
+	typeName := dataValidationTypeMap[rule.Type]
+	dv := NewDataValidation(rule.AllowBlank)
+	dv.Sqref = cell
 	dv.Type = typeName
 	switch rule.Type {
 	case DataValidationTypeList:

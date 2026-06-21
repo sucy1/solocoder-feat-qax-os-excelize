@@ -1536,17 +1536,14 @@ func TestUnprotectWorkbook(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.NoError(t, f.UnprotectWorkbook())
-	assert.NoError(t, f.UnprotectWorkbook("password"))
+	assert.EqualError(t, f.UnprotectWorkbook("password"), ErrUnprotectWorkbook.Error())
 	assert.NoError(t, f.SaveAs(filepath.Join("test", "TestUnprotectWorkbook.xlsx")))
 	assert.NoError(t, f.Close())
 
 	f = NewFile()
 	assert.NoError(t, f.ProtectWorkbook(&WorkbookProtectionOptions{Password: "password"}))
+	assert.EqualError(t, f.UnprotectWorkbook("wrongPassword"), ErrUnprotectWorkbookPassword.Error())
 	wb, err := f.workbookReader()
-	assert.NoError(t, err)
-	assert.NotNil(t, wb.WorkbookProtection)
-	assert.NoError(t, f.UnprotectWorkbook("wrongPassword"))
-	wb, err = f.workbookReader()
 	assert.NoError(t, err)
 	assert.NotNil(t, wb.WorkbookProtection, "protection should not be removed with wrong password")
 	assert.NoError(t, f.UnprotectWorkbook("password"))
@@ -1560,7 +1557,7 @@ func TestUnprotectWorkbook(t *testing.T) {
 	wb, err = f.workbookReader()
 	assert.NoError(t, err)
 	wb.WorkbookProtection.WorkbookSaltValue = "YWJjZA====="
-	assert.NoError(t, f.UnprotectWorkbook("wrongPassword"))
+	assert.EqualError(t, f.UnprotectWorkbook("wrongPassword"), ErrUnprotectWorkbookPassword.Error())
 	wb, err = f.workbookReader()
 	assert.NoError(t, err)
 	assert.NotNil(t, wb.WorkbookProtection, "protection should not be removed with invalid salt")

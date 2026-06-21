@@ -391,5 +391,9 @@ func TestAddValidation(t *testing.T) {
 		Type: DataValidationType(0),
 	}), "unsupported data validation type: 0")
 
+	assert.EqualError(t, f.AddValidation("Sheet1", "H2", &ValidationRule{
+		Type: DataValidationTypeNone,
+	}), "unsupported data validation type: 1")
+
 	assert.NoError(t, f.SaveAs(filepath.Join("test", "TestAddValidation.xlsx")))
 }
