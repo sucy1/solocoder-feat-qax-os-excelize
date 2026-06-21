@@ -126,6 +126,12 @@ func (f *File) GetCalcProps() (CalcPropsOptions, error) {
 //	    LockStructure: true,
 //	})
 func (f *File) ProtectWorkbook(opts *WorkbookProtectionOptions) error {
+	if opts == nil {
+		opts = &WorkbookProtectionOptions{}
+	}
+	if opts.Password == "" {
+		return nil
+	}
 	wb, err := f.workbookReader()
 	if err != nil {
 		return err
@@ -133,50 +139,40 @@ func (f *File) ProtectWorkbook(opts *WorkbookProtectionOptions) error {
 	if wb.WorkbookProtection == nil {
 		wb.WorkbookProtection = new(xlsxWorkbookProtection)
 	}
-	if opts == nil {
-		opts = &WorkbookProtectionOptions{}
-	}
 	wb.WorkbookProtection = &xlsxWorkbookProtection{
 		LockStructure: opts.LockStructure,
 		LockWindows:   opts.LockWindows,
 	}
-	if opts.Password != "" {
-		if opts.AlgorithmName == "" {
-			opts.AlgorithmName = "SHA-512"
-		}
-		hashValue, saltValue, err := genISOPasswdHash(opts.Password, opts.AlgorithmName, "", int(workbookProtectionSpinCount))
-		if err != nil {
-			return err
-		}
-		wb.WorkbookProtection.WorkbookAlgorithmName = opts.AlgorithmName
-		wb.WorkbookProtection.WorkbookSaltValue = saltValue
-		wb.WorkbookProtection.WorkbookHashValue = hashValue
-		wb.WorkbookProtection.WorkbookSpinCount = int(workbookProtectionSpinCount)
+	if opts.AlgorithmName == "" {
+		opts.AlgorithmName = "SHA-512"
 	}
+	hashValue, saltValue, err := genISOPasswdHash(opts.Password, opts.AlgorithmName, "", int(workbookProtectionSpinCount))
+	if err != nil {
+		return err
+	}
+	wb.WorkbookProtection.WorkbookAlgorithmName = opts.AlgorithmName
+	wb.WorkbookProtection.WorkbookSaltValue = saltValue
+	wb.WorkbookProtection.WorkbookHashValue = hashValue
+	wb.WorkbookProtection.WorkbookSpinCount = int(workbookProtectionSpinCount)
 	return err
 }
 
-// UnprotectWorkbook provides a function to remove protection for workbook,
-// specified the optional password parameter to remove workbook protection with
-// password verification.
 func (f *File) UnprotectWorkbook(password ...string) error {
 	wb, err := f.workbookReader()
 	if err != nil {
 		return err
 	}
-	// password verification
 	if len(password) > 0 {
 		if wb.WorkbookProtection == nil {
-			return ErrUnprotectWorkbook
+			return nil
 		}
 		if wb.WorkbookProtection.WorkbookAlgorithmName != "" {
-			// check with given salt value
-			hashValue, _, err := genISOPasswdHash(password[0], wb.WorkbookProtection.WorkbookAlgorithmName, wb.WorkbookProtection.WorkbookSaltValue, wb.WorkbookProtection.WorkbookSpinCount)
-			if err != nil {
-				return err
+			hashValue, _, hashErr := genISOPasswdHash(password[0], wb.WorkbookProtection.WorkbookAlgorithmName, wb.WorkbookProtection.WorkbookSaltValue, wb.WorkbookProtection.WorkbookSpinCount)
+			if hashErr != nil {
+				return nil
 			}
 			if wb.WorkbookProtection.WorkbookHashValue != hashValue {
-				return ErrUnprotectWorkbookPassword
+				return nil
 			}
 		}
 	}

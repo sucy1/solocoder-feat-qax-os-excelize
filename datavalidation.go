@@ -557,8 +557,89 @@ func (dv *xlsxInnerXML) isFormula() bool {
 
 // unescapeDataValidationFormula returns unescaped data validation formula.
 func unescapeDataValidationFormula(val string) string {
-	if strings.HasPrefix(val, "\"") { // Text detection
+	if strings.HasPrefix(val, "\"") {
 		return strings.NewReplacer(`""`, `"`).Replace(formulaUnescaper.Replace(val))
 	}
 	return formulaUnescaper.Replace(val)
+}
+
+// ValidationRule defines a single data validation rule that can be applied to
+// a cell or range using the AddValidation function.
+type ValidationRule struct {
+	Type       DataValidationType
+	Operator   DataValidationOperator
+	Formula1   string
+	Formula2   string
+	AllowBlank bool
+}
+
+// AddValidation provides a convenience function to add data validation on a
+// given cell or range reference in the worksheet by specified rule type and
+// criteria. Supported rule types: integer (whole), decimal, list, date, time,
+// textLength, and custom. The error prompt style can be optionally set.
+//
+// Example 1, set integer validation on Sheet1!A1 with between 10 and 20:
+//
+//	err := f.AddValidation("Sheet1", "A1", &excelize.ValidationRule{
+//	    Type:     excelize.DataValidationTypeWhole,
+//	    Operator: excelize.DataValidationOperatorBetween,
+//	    Formula1: "10",
+//	    Formula2: "20",
+//	}, excelize.DataValidationErrorStyleStop, "error title", "error body")
+//
+// Example 2, set list validation on Sheet1!B1 with items "Yes,No,Maybe":
+//
+//	err := f.AddValidation("Sheet1", "B1", &excelize.ValidationRule{
+//	    Type:     excelize.DataValidationTypeList,
+//	    Formula1: "Yes,No,Maybe",
+//	})
+//
+// Example 3, set custom formula validation on Sheet1!C1:
+//
+//	err := f.AddValidation("Sheet1", "C1", &excelize.ValidationRule{
+//	    Type:     excelize.DataValidationTypeCustom,
+//	    Formula1: "=A1>B1",
+//	})
+func (f *File) AddValidation(sheet, cell string, rule *ValidationRule, errorStyle ...interface{}) error {
+	if rule == nil {
+		return ErrParameterRequired
+	}
+	dv := NewDataValidation(rule.AllowBlank)
+	dv.Sqref = cell
+	typeName, ok := dataValidationTypeMap[rule.Type]
+	if !ok {
+		return ErrParameterInvalid
+	}
+	dv.Type = typeName
+	switch rule.Type {
+	case DataValidationTypeList:
+		dv.Formula1 = fmt.Sprintf(`"%s"`, formulaEscaper.Replace(rule.Formula1))
+	case DataValidationTypeCustom:
+		dv.Formula1 = formulaEscaper.Replace(rule.Formula1)
+	default:
+		dv.Formula1 = rule.Formula1
+		dv.Formula2 = rule.Formula2
+		if opName, ok := dataValidationOperatorMap[rule.Operator]; ok {
+			dv.Operator = opName
+		}
+	}
+	if len(errorStyle) > 0 {
+		var style DataValidationErrorStyle
+		var title, msg string
+		if s, ok := errorStyle[0].(DataValidationErrorStyle); ok {
+			style = s
+		}
+		if len(errorStyle) > 1 {
+			if t, ok := errorStyle[1].(string); ok {
+				title = t
+			}
+		}
+		if len(errorStyle) > 2 {
+			if m, ok := errorStyle[2].(string); ok {
+				msg = m
+			}
+		}
+		dv.SetError(style, title, msg)
+	}
+	return f.AddDataValidation(sheet, dv)
 }

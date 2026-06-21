@@ -41,9 +41,9 @@ type File struct {
 	streams          map[string]*StreamWriter
 	tempFiles        sync.Map
 	xmlAttr          sync.Map
-	calcCache        sync.Map
-	calcRawCache     sync.Map
-	formulaArgCache  sync.Map
+	calcCache        *lruCache
+	calcRawCache     *lruCache
+	formulaArgCache  *lruCache
 	CalcChain        *xlsxCalcChain
 	CharsetReader    func(charset string, input io.Reader) (rdr io.Reader, err error)
 	Comments         map[string]*xlsxComments
@@ -163,6 +163,9 @@ func newFile() *File {
 		DecodeVMLDrawing: make(map[string]*decodeVmlDrawing),
 		VMLDrawing:       make(map[string]*vmlDrawing),
 		Relationships:    sync.Map{},
+		calcCache:        newLRUCache(MaxFormulaCacheEntries),
+		calcRawCache:     newLRUCache(MaxFormulaCacheEntries),
+		formulaArgCache:  newLRUCache(MaxFormulaCacheEntries),
 		CharsetReader:    charset.NewReaderLabel,
 		ZipWriter:        func(w io.Writer) ZipWriter { return zip.NewWriter(w) },
 	}

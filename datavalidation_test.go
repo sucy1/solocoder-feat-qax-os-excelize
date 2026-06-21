@@ -323,3 +323,73 @@ func TestDeleteDataValidation(t *testing.T) {
 		assert.Equal(t, f.DeleteDataValidation("Sheet1", "A7"), newCellNameToCoordinatesError("A", newInvalidCellNameError("A")))
 	})
 }
+
+func TestAddValidation(t *testing.T) {
+	f := NewFile()
+	assert.EqualError(t, f.AddValidation("Sheet1", "A1", nil), ErrParameterRequired.Error())
+
+	assert.NoError(t, f.AddValidation("Sheet1", "A1", &ValidationRule{
+		Type:     DataValidationTypeWhole,
+		Operator: DataValidationOperatorBetween,
+		Formula1: "10",
+		Formula2: "20",
+	}, DataValidationErrorStyleStop, "error title", "error body"))
+
+	dvs, err := f.GetDataValidations("Sheet1")
+	assert.NoError(t, err)
+	assert.Len(t, dvs, 1)
+	assert.Equal(t, "whole", dvs[0].Type)
+	assert.Equal(t, "between", dvs[0].Operator)
+
+	assert.NoError(t, f.AddValidation("Sheet1", "B1", &ValidationRule{
+		Type:     DataValidationTypeList,
+		Formula1: "Yes,No,Maybe",
+	}))
+	dvs, err = f.GetDataValidations("Sheet1")
+	assert.NoError(t, err)
+	assert.Len(t, dvs, 2)
+	assert.Equal(t, "list", dvs[1].Type)
+
+	assert.NoError(t, f.AddValidation("Sheet1", "C1", &ValidationRule{
+		Type:     DataValidationTypeCustom,
+		Formula1: "=A1>B1",
+	}))
+	dvs, err = f.GetDataValidations("Sheet1")
+	assert.NoError(t, err)
+	assert.Len(t, dvs, 3)
+	assert.Equal(t, "custom", dvs[2].Type)
+
+	assert.NoError(t, f.AddValidation("Sheet1", "D1", &ValidationRule{
+		Type:     DataValidationTypeDecimal,
+		Operator: DataValidationOperatorGreaterThan,
+		Formula1: "0.5",
+	}))
+	dvs, err = f.GetDataValidations("Sheet1")
+	assert.NoError(t, err)
+	assert.Len(t, dvs, 4)
+	assert.Equal(t, "decimal", dvs[3].Type)
+
+	assert.NoError(t, f.AddValidation("Sheet1", "E1", &ValidationRule{
+		Type:     DataValidationTypeDate,
+		Operator: DataValidationOperatorBetween,
+		Formula1: "2024-01-01",
+		Formula2: "2024-12-31",
+	}))
+	assert.NoError(t, f.AddValidation("Sheet1", "F1", &ValidationRule{
+		Type:     DataValidationTypeTime,
+		Operator: DataValidationOperatorBetween,
+		Formula1: "09:00",
+		Formula2: "17:00",
+	}))
+	assert.NoError(t, f.AddValidation("Sheet1", "G1", &ValidationRule{
+		Type:     DataValidationTypeTextLength,
+		Operator: DataValidationOperatorLessThanOrEqual,
+		Formula1: "100",
+	}))
+
+	assert.EqualError(t, f.AddValidation("Sheet1", "H1", &ValidationRule{
+		Type: DataValidationType(0),
+	}), ErrParameterInvalid.Error())
+
+	assert.NoError(t, f.SaveAs(filepath.Join("test", "TestAddValidation.xlsx")))
+}

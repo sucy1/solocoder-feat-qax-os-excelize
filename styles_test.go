@@ -898,3 +898,53 @@ func TestGetStyle(t *testing.T) {
 	assert.Nil(t, style)
 	assert.EqualError(t, err, "XML syntax error on line 1: invalid UTF-8")
 }
+
+func TestAddConditionalFormat(t *testing.T) {
+	f := NewFile()
+	assert.EqualError(t, f.AddConditionalFormat("Sheet1", "A1:A10", nil), ErrParameterRequired.Error())
+
+	assert.NoError(t, f.AddConditionalFormat("Sheet1", "A1:A10", &ConditionalFormatOptions{
+		Type:     "2_color_scale",
+		Criteria: "=",
+		MinType:  "num",
+		MaxType:  "num",
+		MinColor: "#F8696B",
+		MaxColor: "#63BE7B",
+	}))
+
+	assert.NoError(t, f.AddConditionalFormat("Sheet1", "B1:B10", &ConditionalFormatOptions{
+		Type:     "3_color_scale",
+		Criteria: "=",
+		MinType:  "num",
+		MidType:  "num",
+		MaxType:  "num",
+		MinColor: "#F8696B",
+		MidColor: "#FFEB84",
+		MaxColor: "#63BE7B",
+	}))
+
+	assert.NoError(t, f.AddConditionalFormat("Sheet1", "C1:C10", &ConditionalFormatOptions{
+		Type:     "data_bar",
+		Criteria: "=",
+		MinType:  "min",
+		MaxType:  "max",
+		BarColor: "#638EC6",
+		BarSolid: true,
+	}))
+
+	assert.NoError(t, f.AddConditionalFormat("Sheet1", "D1:D10", &ConditionalFormatOptions{
+		Type:      "icon_set",
+		IconStyle: "3Arrows",
+		Criteria:  "=",
+	}))
+
+	assert.NoError(t, f.AddConditionalFormat("Sheet1", "E1:E10", &ConditionalFormatOptions{
+		Type:     "data_bar",
+		Criteria: "=",
+		MinType:  "min",
+		MaxType:  "max",
+		BarColor: "#638EC6",
+	}))
+
+	assert.NoError(t, f.SaveAs(filepath.Join("test", "TestAddConditionalFormat.xlsx")))
+}

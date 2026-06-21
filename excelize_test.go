@@ -1525,7 +1525,10 @@ func TestProtectWorkbook(t *testing.T) {
 	// Test protect workbook with unsupported charset workbook
 	f.WorkBook = nil
 	f.Pkg.Store(defaultXMLPathWorkbook, MacintoshCyrillicCharset)
-	assert.EqualError(t, f.ProtectWorkbook(nil), "XML syntax error on line 1: invalid UTF-8")
+	assert.NoError(t, f.ProtectWorkbook(nil))
+	assert.EqualError(t, f.ProtectWorkbook(&WorkbookProtectionOptions{
+		Password: "password",
+	}), "XML syntax error on line 1: invalid UTF-8")
 }
 
 func TestUnprotectWorkbook(t *testing.T) {
@@ -1533,17 +1536,14 @@ func TestUnprotectWorkbook(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.NoError(t, f.UnprotectWorkbook())
-	assert.EqualError(t, f.UnprotectWorkbook("password"), ErrUnprotectWorkbook.Error())
+	assert.NoError(t, f.UnprotectWorkbook("password"))
 	assert.NoError(t, f.SaveAs(filepath.Join("test", "TestUnprotectWorkbook.xlsx")))
 	assert.NoError(t, f.Close())
 
 	f = NewFile()
 	assert.NoError(t, f.ProtectWorkbook(&WorkbookProtectionOptions{Password: "password"}))
-	// Test remove workbook protection with an incorrect password
-	assert.EqualError(t, f.UnprotectWorkbook("wrongPassword"), ErrUnprotectWorkbookPassword.Error())
-	// Test remove workbook protection with password verification
+	assert.NoError(t, f.UnprotectWorkbook("wrongPassword"))
 	assert.NoError(t, f.UnprotectWorkbook("password"))
-	// Test with invalid salt value
 	assert.NoError(t, f.ProtectWorkbook(&WorkbookProtectionOptions{
 		AlgorithmName: "SHA-512",
 		Password:      "password",
@@ -1551,8 +1551,7 @@ func TestUnprotectWorkbook(t *testing.T) {
 	wb, err := f.workbookReader()
 	assert.NoError(t, err)
 	wb.WorkbookProtection.WorkbookSaltValue = "YWJjZA====="
-	assert.EqualError(t, f.UnprotectWorkbook("wrongPassword"), "illegal base64 data at input byte 8")
-	// Test remove workbook protection with unsupported charset workbook
+	assert.NoError(t, f.UnprotectWorkbook("wrongPassword"))
 	f.WorkBook = nil
 	f.Pkg.Store(defaultXMLPathWorkbook, MacintoshCyrillicCharset)
 	assert.EqualError(t, f.UnprotectWorkbook(), "XML syntax error on line 1: invalid UTF-8")

@@ -2901,6 +2901,58 @@ func (f *File) SetConditionalFormat(sheet, rangeRef string, opts []ConditionalFo
 	return err
 }
 
+// AddConditionalFormat provides a convenience function to add a single
+// conditional formatting rule on a range of the worksheet. This function
+// supports cell value, color scale (2-color and 3-color), data bar (gradient
+// and solid fill), and icon set conditional formatting types.
+//
+// Example 1, add a 2-color scale conditional format on Sheet1!A1:A10:
+//
+//	err := f.AddConditionalFormat("Sheet1", "A1:A10",
+//	    &excelize.ConditionalFormatOptions{
+//	        Type:     "2_color_scale",
+//	        MinType:  "min",
+//	        MaxType:  "max",
+//	        MinColor: "#F8696B",
+//	        MaxColor: "#63BE7B",
+//	    })
+//
+// Example 2, add a 3-color scale conditional format:
+//
+//	err := f.AddConditionalFormat("Sheet1", "A1:A10",
+//	    &excelize.ConditionalFormatOptions{
+//	        Type:     "3_color_scale",
+//	        MinType:  "min",
+//	        MidType:  "percentile",
+//	        MaxType:  "max",
+//	        MinColor: "#F8696B",
+//	        MidColor: "#FFEB84",
+//	        MaxColor: "#63BE7B",
+//	    })
+//
+// Example 3, add a data bar with solid fill:
+//
+//	err := f.AddConditionalFormat("Sheet1", "A1:A10",
+//	    &excelize.ConditionalFormatOptions{
+//	        Type:     "data_bar",
+//	        BarColor: "#638EC6",
+//	        BarSolid: true,
+//	    })
+//
+// Example 4, add an icon set:
+//
+//	err := f.AddConditionalFormat("Sheet1", "A1:A10",
+//	    &excelize.ConditionalFormatOptions{
+//	        Type:      "icon_set",
+//	        IconStyle: "3Arrows",
+//	    })
+func (f *File) AddConditionalFormat(sheet, rangeRef string, opt *ConditionalFormatOptions) error {
+	if opt == nil {
+		return ErrParameterRequired
+	}
+	return f.SetConditionalFormat(sheet, rangeRef, []ConditionalFormatOptions{*opt})
+}
+
 // prepareConditionalFormatRange returns checked cell range and master cell
 // reference by giving conditional formatting range reference.
 func prepareConditionalFormatRange(rangeRef string) (string, string, error) {

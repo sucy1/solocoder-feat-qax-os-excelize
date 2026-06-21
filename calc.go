@@ -38,6 +38,7 @@ import (
 )
 
 const (
+	MaxFormulaCacheEntries = 1000
 	// Excel formula errors
 	formulaErrorDIV         = "#DIV/0!"
 	formulaErrorNAME        = "#NAME?"
@@ -100,9 +101,90 @@ const (
 	timeSuffix = `( (` + tfhh + `|` + tfhhmm + `|` + tfmmss + `|` + tfhhmmss + `))?$`
 )
 
+type lruCacheEntry struct {
+	key   string
+	value interface{}
+}
+
+type lruCache struct {
+	mu       sync.Mutex
+	capacity int
+	items    map[string]*list.Element
+	order    *list.List
+}
+
+func newLRUCache(capacity int) *lruCache {
+	return &lruCache{
+		capacity: capacity,
+		items:    make(map[string]*list.Element),
+		order:    list.New(),
+	}
+}
+
+func (c *lruCache) Load(key string) (interface{}, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if elem, ok := c.items[key]; ok {
+		c.order.MoveToFront(elem)
+		return elem.Value.(*lruCacheEntry).value, true
+	}
+	return nil, false
+}
+
+func (c *lruCache) Store(key string, value interface{}) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if elem, ok := c.items[key]; ok {
+		c.order.MoveToFront(elem)
+		elem.Value.(*lruCacheEntry).value = value
+		return
+	}
+	if c.order.Len() >= c.capacity {
+		oldest := c.order.Back()
+		if oldest != nil {
+			c.order.Remove(oldest)
+			delete(c.items, oldest.Value.(*lruCacheEntry).key)
+		}
+	}
+	elem := c.order.PushFront(&lruCacheEntry{key: key, value: value})
+	c.items[key] = elem
+}
+
+func (c *lruCache) Delete(key string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if elem, ok := c.items[key]; ok {
+		c.order.Remove(elem)
+		delete(c.items, key)
+	}
+}
+
+func (c *lruCache) Clear() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.items = make(map[string]*list.Element)
+	c.order.Init()
+}
+
+func (c *lruCache) InvalidateSheet(sheet string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	prefix := sheet + "!"
+	var keysToRemove []string
+	for key := range c.items {
+		if strings.HasPrefix(key, prefix) {
+			keysToRemove = append(keysToRemove, key)
+		}
+	}
+	for _, key := range keysToRemove {
+		if elem, ok := c.items[key]; ok {
+			c.order.Remove(elem)
+			delete(c.items, key)
+		}
+	}
+}
+
 var (
-	// wildcardTokenRE tokenizes an Excel wildcard pattern into tilde-escaped
-	// sequences, bare wildcards (* ?), or any other single character.
 	wildcardTokenRE = regexp.MustCompile(`~[*?~]|[*?]|[\s\S]`)
 	// wildcardPatternMap maps each token produced by wildcardTokenRE to its
 	// regular-expression equivalent. Tokens absent from the map are literals.
@@ -944,6 +1026,12 @@ func (f *File) clearCalcCache() {
 	f.calcCache.Clear()
 	f.calcRawCache.Clear()
 	f.formulaArgCache.Clear()
+}
+
+func (f *File) invalidateSheetCalcCache(sheet string) {
+	f.calcCache.InvalidateSheet(sheet)
+	f.calcRawCache.InvalidateSheet(sheet)
+	f.formulaArgCache.InvalidateSheet(sheet)
 }
 
 // calcCellValue calculate cell value by given context, worksheet name and cell

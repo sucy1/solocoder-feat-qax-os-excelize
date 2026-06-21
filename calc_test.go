@@ -7185,3 +7185,93 @@ func TestCalc3DRef(t *testing.T) {
 	assert.Empty(t, split3DReference(":Sheet1!A1"))
 	assert.Empty(t, split3DReference("!A1"))
 }
+
+func TestLRUCache(t *testing.T) {
+	t.Run("basic_store_and_load", func(t *testing.T) {
+		c := newLRUCache(3)
+		c.Store("a", 1)
+		c.Store("b", 2)
+		c.Store("c", 3)
+		val, ok := c.Load("a")
+		assert.True(t, ok)
+		assert.Equal(t, 1, val)
+		val, ok = c.Load("b")
+		assert.True(t, ok)
+		assert.Equal(t, 2, val)
+	})
+
+	t.Run("eviction", func(t *testing.T) {
+		c := newLRUCache(2)
+		c.Store("a", 1)
+		c.Store("b", 2)
+		c.Store("c", 3)
+		_, ok := c.Load("a")
+		assert.False(t, ok, "a should be evicted")
+		val, ok := c.Load("b")
+		assert.True(t, ok)
+		assert.Equal(t, 2, val)
+		val, ok = c.Load("c")
+		assert.True(t, ok)
+		assert.Equal(t, 3, val)
+	})
+
+	t.Run("lru_order_on_access", func(t *testing.T) {
+		c := newLRUCache(2)
+		c.Store("a", 1)
+		c.Store("b", 2)
+		c.Load("a")
+		c.Store("c", 3)
+		_, ok := c.Load("a")
+		assert.True(t, ok, "a should still exist after being accessed")
+		_, ok = c.Load("b")
+		assert.False(t, ok, "b should be evicted")
+	})
+
+	t.Run("delete", func(t *testing.T) {
+		c := newLRUCache(10)
+		c.Store("a", 1)
+		c.Delete("a")
+		_, ok := c.Load("a")
+		assert.False(t, ok)
+	})
+
+	t.Run("clear", func(t *testing.T) {
+		c := newLRUCache(10)
+		c.Store("a", 1)
+		c.Store("b", 2)
+		c.Clear()
+		_, ok := c.Load("a")
+		assert.False(t, ok)
+		_, ok = c.Load("b")
+		assert.False(t, ok)
+	})
+
+	t.Run("invalidate_sheet", func(t *testing.T) {
+		c := newLRUCache(10)
+		c.Store("Sheet1!A1", 1)
+		c.Store("Sheet1!A2", 2)
+		c.Store("Sheet2!A1", 3)
+		c.InvalidateSheet("Sheet1")
+		_, ok := c.Load("Sheet1!A1")
+		assert.False(t, ok)
+		_, ok = c.Load("Sheet1!A2")
+		assert.False(t, ok)
+		val, ok := c.Load("Sheet2!A1")
+		assert.True(t, ok)
+		assert.Equal(t, 3, val)
+	})
+
+	t.Run("formula_cache_invalidation_on_set_cell", func(t *testing.T) {
+		f := NewFile()
+		assert.NoError(t, f.SetCellValue("Sheet1", "A1", 10))
+		assert.NoError(t, f.SetCellValue("Sheet1", "A2", 20))
+		assert.NoError(t, f.SetCellFormula("Sheet1", "A3", "A1+A2"))
+		result, err := f.CalcCellValue("Sheet1", "A3")
+		assert.NoError(t, err)
+		assert.Equal(t, "30", result)
+		assert.NoError(t, f.SetCellValue("Sheet1", "A1", 50))
+		result, err = f.CalcCellValue("Sheet1", "A3")
+		assert.NoError(t, err)
+		assert.Equal(t, "70", result)
+	})
+}
